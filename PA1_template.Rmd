@@ -20,7 +20,7 @@ Load the data from the provided zip file:
 
 ```{r}
 conn <- unz("activity.zip", filename = "activity.csv")
-activity_data <- tbl_df(read.csv(conn, colClasses = c("integer", "Date", "integer")))
+activity_data <- read.csv(conn, colClasses = c("integer", "Date", "integer"))
 ```
 
 ## What is mean total number of steps taken per day?
@@ -65,8 +65,22 @@ ggplot(mapping = aes(x = interval, y = avg_steps), data=activity_pattern) +
     labs(title="Average steps taken per time interval", y = "average steps taken")
 ```
 
+Here's an interesting question: which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r}
+filter(activity_pattern, avg_steps == max(avg_steps))$interval
+```
+
+The result tells us that the most walking on average is done from 8:35 am to 8:40 am, which is consistent with the pattern of a person going to work in the morning, probably to start the work day around 9:00 am.
+
 ## Imputing missing values
 
+Note that there are a number of days/intervals where there are missing values (coded as ```NA```). The presence of missing days may introduce bias into some calculations or summaries of the data.
 
+Let's see how many observations with missing values for the step measurement are.
+
+```{r}
+summarise(activity_data, NAs = sum(is.na(steps)), NAs.percentile = NAs / n() * 100)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
