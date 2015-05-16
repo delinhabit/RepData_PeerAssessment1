@@ -35,9 +35,11 @@ daily_steps <- activity_data %>%
 
 Next, let's take a look at the distribution of the daily number of steps:
 
-```{r}
+```{r distribution_of_total_daily_steps}
 with(daily_steps, hist(steps, breaks=max(steps) / 1000))
 ```
+
+Because we ignored the missing values when we did our summaries, we ended up having a lot of days with the total number of steps equal to zero. We can see that in the histogram above.
 
 And finally, let's see what are the mean and median total number of steps taken each day.
 
@@ -59,7 +61,7 @@ activity_pattern <- activity_data %>%
 
 Next, we need to plot the results.
 
-```{r}
+```{r daily_activity_pattern}
 ggplot(mapping = aes(x = interval, y = avg_steps), data=activity_pattern) + 
     geom_line() +
     labs(title="Average steps taken per time interval", y = "average steps taken")
@@ -83,4 +85,67 @@ Let's see how many observations with missing values for the step measurement are
 summarise(activity_data, NAs = sum(is.na(steps)), NAs.percentile = NAs / n() * 100)
 ```
 
+We can see that about 13% of the mesaurements are missing values. Since the daily activity patterns for a person are similar throughout the day (sleep, waking up, going to work, working, e.t.c.), we could fill in the missing values by using the means of the corresponding 5-minutes intervals.
+
+First, we `merge` the data by interval, so we have all the steps and their corresponding mean values together. Next we use `mutate` to update the missing steps values with the mean values. Because the merge operation reordered both the columns and the rows, the last two steps are to select and reorder back the columns to match the initial dataset and then to sort the dataframe by date.
+
+```{r}
+n_activity_data <- merge(activity_data, activity_pattern, by="interval") %>%
+    mutate(steps = ifelse(is.na(steps), avg_steps, steps)) %>%
+    select(steps, date, interval) %>% 
+    arrange(date)
+```
+
+Let's now do the same analysis for the imputed data set, as we did for the initial one.
+
+```{r}
+n_daily_steps <- n_activity_data %>%
+    group_by(date) %>% 
+    summarise(steps = sum(steps))
+```
+
+```{r n_distribution_of_total_daily_steps}
+with(n_daily_steps, hist(steps, breaks=max(steps) / 1000))
+```
+
+```{r}
+with(n_daily_steps,
+     list(mean = mean(steps),
+          median = median(steps)))
+```
+
+We can see that the distribution of total number of steps represents more accurately a normal distribution that the original in data set. Also the mean and median values are equal now, since the total number of daily steps is no more skewed towards zero, for the days when we didn't have any measurements.
+
 ## Are there differences in activity patterns between weekdays and weekends?
+
+In order to answer this question we need first to tag each measurement with the corresponding type of week day: weekday or weekend.
+
+```{r}
+n_activity_data <- n_activity_data %>%
+    mutate(day_type = as.factor(
+        ifelse(weekdays(date) %in% c("Saturday", "Sunday"), 
+               "weekend",
+               "weekday")))
+```
+
+Next, let summarise the data and compute the average number of steps taken in each 5-minutes interval based on the day of week type.
+
+```{r}
+n_activity_pattern <- n_activity_data %>%
+    group_by(interval, day_type) %>% 
+    summarise(avg_steps = mean(steps))
+```
+
+And finally, let's vizualize the results.
+
+```{r weekday_activity_pattern, fig.width = 10}
+ggplot(mapping = aes(x = interval, y = avg_steps), data=n_activity_pattern) + 
+    geom_line() +
+    facet_wrap(~ day_type) +
+    labs(title="Average steps taken per time interval", y = "average steps taken")
+```
+
+We can see in the plot above slightly different patterns of activities:
+
+1. On weekdays, we have a significant spike in number of steps in the morning (probably when walking to work) and a lower number of steps taken during the work hours.
+2. On weekends, on the other hand, we don't see a morning spike anymore, though the number of steps taken throughout the day is bigger that on weekdays. This is probably due to outdoor activities, like walking or hicking.
